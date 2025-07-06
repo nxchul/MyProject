@@ -5,7 +5,6 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import ccxt
 import numpy as np
-import talib
 import json
 
 # Configure page
@@ -63,62 +62,78 @@ def get_exchange():
 
 # Feature extraction functions
 def extract_features(df, target_idx):
-    """Extract technical indicators for a specific index"""
+    """Extract technical indicators for a specific index using pandas"""
     if len(df) < 50:  # Need enough data for indicators
         return {}
     
-    # Convert to numpy arrays
-    high = df['high'].values
-    low = df['low'].values
-    close = df['close'].values
-    volume = df['volume'].values
-    
-    # Calculate technical indicators
+    # Calculate technical indicators using pandas
     features = {}
     
     try:
-        # RSI
-        rsi = talib.RSI(close, timeperiod=14)
-        features['rsi_14'] = rsi[target_idx] if not np.isnan(rsi[target_idx]) else None
+        # Create a copy to avoid modifying original
+        df_temp = df.copy()
+        
+        # RSI (simplified version)
+        delta = df_temp['close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        features['rsi_14'] = rsi.iloc[target_idx] if not pd.isna(rsi.iloc[target_idx]) else None
         
         # MACD
-        macd_line, macd_signal, macd_histogram = talib.MACD(close, fastperiod=12, slowperiod=26, signalperiod=9)
-        features['macd_line'] = macd_line[target_idx] if not np.isnan(macd_line[target_idx]) else None
-        features['macd_signal'] = macd_signal[target_idx] if not np.isnan(macd_signal[target_idx]) else None
-        features['macd_histogram'] = macd_histogram[target_idx] if not np.isnan(macd_histogram[target_idx]) else None
+        ema_12 = df_temp['close'].ewm(span=12).mean()
+        ema_26 = df_temp['close'].ewm(span=26).mean()
+        macd_line = ema_12 - ema_26
+        macd_signal = macd_line.ewm(span=9).mean()
+        macd_histogram = macd_line - macd_signal
+        
+        features['macd_line'] = macd_line.iloc[target_idx] if not pd.isna(macd_line.iloc[target_idx]) else None
+        features['macd_signal'] = macd_signal.iloc[target_idx] if not pd.isna(macd_signal.iloc[target_idx]) else None
+        features['macd_histogram'] = macd_histogram.iloc[target_idx] if not pd.isna(macd_histogram.iloc[target_idx]) else None
         
         # Bollinger Bands
-        bb_upper, bb_middle, bb_lower = talib.BBANDS(close, timeperiod=20, nbdevup=2, nbdevdn=2)
-        features['bb_upper'] = bb_upper[target_idx] if not np.isnan(bb_upper[target_idx]) else None
-        features['bb_middle'] = bb_middle[target_idx] if not np.isnan(bb_middle[target_idx]) else None
-        features['bb_lower'] = bb_lower[target_idx] if not np.isnan(bb_lower[target_idx]) else None
+        bb_middle = df_temp['close'].rolling(window=20).mean()
+        bb_std = df_temp['close'].rolling(window=20).std()
+        bb_upper = bb_middle + (bb_std * 2)
+        bb_lower = bb_middle - (bb_std * 2)
+        
+        features['bb_upper'] = bb_upper.iloc[target_idx] if not pd.isna(bb_upper.iloc[target_idx]) else None
+        features['bb_middle'] = bb_middle.iloc[target_idx] if not pd.isna(bb_middle.iloc[target_idx]) else None
+        features['bb_lower'] = bb_lower.iloc[target_idx] if not pd.isna(bb_lower.iloc[target_idx]) else None
         
         # Moving Averages
-        sma_20 = talib.SMA(close, timeperiod=20)
-        features['price_sma_20'] = sma_20[target_idx] if not np.isnan(sma_20[target_idx]) else None
+        sma_20 = df_temp['close'].rolling(window=20).mean()
+        features['price_sma_20'] = sma_20.iloc[target_idx] if not pd.isna(sma_20.iloc[target_idx]) else None
         
-        ema_12 = talib.EMA(close, timeperiod=12)
-        features['price_ema_12'] = ema_12[target_idx] if not np.isnan(ema_12[target_idx]) else None
-        
-        ema_26 = talib.EMA(close, timeperiod=26)
-        features['price_ema_26'] = ema_26[target_idx] if not np.isnan(ema_26[target_idx]) else None
+        features['price_ema_12'] = ema_12.iloc[target_idx] if not pd.isna(ema_12.iloc[target_idx]) else None
+        features['price_ema_26'] = ema_26.iloc[target_idx] if not pd.isna(ema_26.iloc[target_idx]) else None
         
         # Volume indicators
-        volume_sma_20 = talib.SMA(volume, timeperiod=20)
-        features['volume_sma_20'] = volume_sma_20[target_idx] if not np.isnan(volume_sma_20[target_idx]) else None
+        volume_sma_20 = df_temp['volume'].rolling(window=20).mean()
+        features['volume_sma_20'] = volume_sma_20.iloc[target_idx] if not pd.isna(volume_sma_20.iloc[target_idx]) else None
         
-        # Stochastic
-        stoch_k, stoch_d = talib.STOCH(high, low, close, fastk_period=14, slowk_period=3, slowd_period=3)
-        features['stoch_k'] = stoch_k[target_idx] if not np.isnan(stoch_k[target_idx]) else None
-        features['stoch_d'] = stoch_d[target_idx] if not np.isnan(stoch_d[target_idx]) else None
+        # Stochastic (simplified)
+        high_14 = df_temp['high'].rolling(window=14).max()
+        low_14 = df_temp['low'].rolling(window=14).min()
+        stoch_k = 100 * (df_temp['close'] - low_14) / (high_14 - low_14)
+        stoch_d = stoch_k.rolling(window=3).mean()
         
-        # ATR
-        atr = talib.ATR(high, low, close, timeperiod=14)
-        features['atr_14'] = atr[target_idx] if not np.isnan(atr[target_idx]) else None
+        features['stoch_k'] = stoch_k.iloc[target_idx] if not pd.isna(stoch_k.iloc[target_idx]) else None
+        features['stoch_d'] = stoch_d.iloc[target_idx] if not pd.isna(stoch_d.iloc[target_idx]) else None
         
-        # Williams %R
-        williams_r = talib.WILLR(high, low, close, timeperiod=14)
-        features['williams_r'] = williams_r[target_idx] if not np.isnan(williams_r[target_idx]) else None
+        # ATR (simplified)
+        high_low = df_temp['high'] - df_temp['low']
+        high_close = np.abs(df_temp['high'] - df_temp['close'].shift())
+        low_close = np.abs(df_temp['low'] - df_temp['close'].shift())
+        ranges = pd.concat([high_low, high_close, low_close], axis=1)
+        true_range = ranges.max(axis=1)
+        atr = true_range.rolling(window=14).mean()
+        features['atr_14'] = atr.iloc[target_idx] if not pd.isna(atr.iloc[target_idx]) else None
+        
+        # Williams %R (simplified)
+        williams_r = -100 * (high_14 - df_temp['close']) / (high_14 - low_14)
+        features['williams_r'] = williams_r.iloc[target_idx] if not pd.isna(williams_r.iloc[target_idx]) else None
         
     except Exception as e:
         st.error(f"Feature extraction error: {e}")
