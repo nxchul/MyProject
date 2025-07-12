@@ -16,6 +16,7 @@ export default function GDSUpload({ shuttleId, userId, existingApplication }: Pr
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [progress, setProgress] = useState<number>(0);
 
   const MAX_SIZE_BYTES = 100 * 1024 * 1024; // 100MB
   const ALLOWED_EXT = [
@@ -56,10 +57,45 @@ export default function GDSUpload({ shuttleId, userId, existingApplication }: Pr
       }
 
       const path = `${userId}/${shuttleId}-${Date.now()}.gds`;
-      const { error: uploadError } = await supabaseBrowser.storage
+
+      // Try signed upload URL to get progress callbacks
+      const { data: signedData, error: signedError } = await supabaseBrowser.storage
         .from("gds")
-        .upload(path, file, { contentType: "application/octet-stream" });
-      if (uploadError) throw uploadError;
+        .createSignedUploadUrl(path);
+
+      if (!signedError && signedData?.signedUrl && signedData?.token) {
+        // Use XHR for progress
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const pct = Math.round((e.loaded / e.total) * 100);
+              setProgress(pct);
+            }
+          };
+          xhr.onload = () => {
+            if (xhr.status === 200 || xhr.status === 204) {
+              resolve();
+            } else {
+              reject(new Error(`Upload failed. Status ${xhr.status}`));
+            }
+          };
+          xhr.onerror = () => reject(new Error("Network error during upload"));
+          xhr.open("PUT", signedData.signedUrl, true);
+          xhr.setRequestHeader("Content-Type", "application/octet-stream");
+          xhr.send(file);
+        });
+        // Tell supabase upload finished via uploadToSignedUrl to finalize
+        await supabaseBrowser.storage
+          .from("gds")
+          .uploadToSignedUrl(path, signedData.token, file);
+      } else {
+        // Fallback: direct upload (no progress)
+        const { error: uploadError } = await supabaseBrowser.storage
+          .from("gds")
+          .upload(path, file, { contentType: "application/octet-stream" });
+        if (uploadError) throw uploadError;
+      }
 
       // update application status and path
       const { error: updateError } = await supabaseBrowser
@@ -69,6 +105,7 @@ export default function GDSUpload({ shuttleId, userId, existingApplication }: Pr
       if (updateError) throw updateError;
 
       setMessage("Upload successful. XOR verification pending.");
+      setProgress(100);
     } catch (err: any) {
       console.error(err);
       setMessage("Failed to upload GDS file.");
@@ -92,6 +129,14 @@ export default function GDSUpload({ shuttleId, userId, existingApplication }: Pr
         {uploading ? "Uploading…" : "Upload GDS"}
       </button>
       {message && <p className="text-sm text-slate-700">{message}</p>}
+      {uploading && (
+        <div className="h-2 w-full rounded bg-slate-200">
+          <div
+            className="h-full rounded bg-blue-600 transition-all"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }
