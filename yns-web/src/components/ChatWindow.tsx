@@ -7,6 +7,8 @@ interface Message {
   content: string;
 }
 
+interface ApiResponse { response: string; citations?: { id: number; source: string }[] }
+
 export default function ChatWindow() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -34,10 +36,13 @@ export default function ChatWindow() {
         body: JSON.stringify({ messages: [...messages, userMessage] }),
       });
       if (!res.ok) throw new Error("Network response was not ok");
-      const data = (await res.json()) as { response: string };
+      const data = (await res.json()) as ApiResponse;
       const assistantMessage: Message = {
         role: "assistant",
-        content: data.response,
+        content: data.response +
+          (data.citations && data.citations.length
+            ? "\n\n" + data.citations.map(c => `[${c.id}] ${c.source}`).join("\n")
+            : ""),
       };
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (err) {

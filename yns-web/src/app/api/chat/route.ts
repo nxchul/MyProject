@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { SupabaseVectorStore } from "langchain/vectorstores/supabase";
 import { OpenAIEmbeddings } from "langchain/embeddings/openai";
 import { createClient } from "@supabase/supabase-js";
+import { retrieveContext } from "@/lib/rag";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -34,11 +35,10 @@ export async function POST(req: Request) {
     // Get last user question
     const question = messages.filter((m) => m.role === "user").slice(-1)[0]?.content ?? "";
 
-    let contextText = "";
-    if (question) {
-      const relevantDocs = await vectorStore.similaritySearch(question, 4);
-      contextText = relevantDocs.map((d: any) => d.pageContent).join("\n---\n");
-    }
+    // Retrieve documents for RAG
+    const relevantDocs = await retrieveContext(question, 4);
+    const contextText = relevantDocs.map((d: any) => d.pageContent).join("\n---\n");
+    const citations = relevantDocs.map((d: any, idx: number) => ({ id: idx + 1, source: d.metadata?.source }));
 
     const systemPrompt = `You are an assistant for YNS & TSMC Design House. Use the provided CONTEXT to answer user queries. If answer not found, say you don't know.
 
@@ -56,7 +56,7 @@ CONTEXT:\n${contextText}`;
 
     const response = completion.choices[0].message.content ?? "";
 
-    return NextResponse.json({ response });
+    return NextResponse.json({ response, citations });
   } catch (err: any) {
     console.error(err);
     return NextResponse.json(
