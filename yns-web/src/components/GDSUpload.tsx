@@ -31,7 +31,6 @@ export default function GDSUpload({ shuttleId, userId, existingApplication }: Pr
     const file = fileInputRef.current?.files?.[0];
     if (!file) return;
 
-    const ext = file.name.toLowerCase().replace(/^.+(\.)/, ".");
     if (!ALLOWED_EXT.some((e) => file.name.toLowerCase().endsWith(e))) {
       setMessage(`Invalid file type. Allowed: ${ALLOWED_EXT.join(', ')}`);
       return;
@@ -59,6 +58,7 @@ export default function GDSUpload({ shuttleId, userId, existingApplication }: Pr
       const path = `${userId}/${shuttleId}-${Date.now()}.gds`;
 
       // Try signed upload URL to get progress callbacks
+      // @ts-ignore - `createSignedUploadUrl` is available in supabase-js >= 2.24
       const { data: signedData, error: signedError } = await supabaseBrowser.storage
         .from("gds")
         .createSignedUploadUrl(path);
@@ -86,9 +86,10 @@ export default function GDSUpload({ shuttleId, userId, existingApplication }: Pr
           xhr.send(file);
         });
         // Tell supabase upload finished via uploadToSignedUrl to finalize
+        // @ts-ignore - uploadToSignedUrl typing may not yet exist in SDK types
         await supabaseBrowser.storage
           .from("gds")
-          .uploadToSignedUrl(path, signedData.token, file);
+          .uploadToSignedUrl(path, (signedData as any).token, file);
       } else {
         // Fallback: direct upload (no progress)
         const { error: uploadError } = await supabaseBrowser.storage
