@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
-import nodemailer from "nodemailer";
+import { sendEmail } from "../src/lib/email";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -13,19 +13,7 @@ if (!supabaseUrl || !serviceKey) {
 }
 const supabase = createClient(supabaseUrl, serviceKey);
 
-async function sendEmail(to: string, subject: string, text: string) {
-  if (!process.env.SMTP_HOST) return; // skip if not configured
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: false,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
-  await transporter.sendMail({ from: process.env.SMTP_FROM, to, subject, text });
-}
+const klayoutBin = process.env.KLAYOUT_BIN || "klayout";
 
 async function processApplications() {
   const { data: apps, error } = await supabase
@@ -48,12 +36,13 @@ async function processApplications() {
       const buffer = Buffer.from(await res.arrayBuffer());
       fs.writeFileSync(localPath, buffer);
 
-      // XOR verification stub (replace with real klayout command)
+      // XOR verification using klayout
       let xorPassed = true;
       let summary = "XOR passed (stub)";
       try {
-        // execSync(`klayout -b -r xor_run.lyt -rd IN_FILE=${localPath}`, { stdio: "inherit" });
+        execSync(`${klayoutBin} -b -r xor_run.lyt -rd IN_FILE=${localPath}`, { stdio: "inherit" });
         xorPassed = true;
+        summary = "XOR passed";
       } catch (err) {
         xorPassed = false;
         summary = "XOR differences detected";

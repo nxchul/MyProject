@@ -17,9 +17,28 @@ export default function GDSUpload({ shuttleId, userId, existingApplication }: Pr
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  const MAX_SIZE_BYTES = 100 * 1024 * 1024; // 100MB
+  const ALLOWED_EXT = [
+    ".gds",
+    ".gds.gz",
+    ".tgz",
+    ".tar",
+    ".tar.gz",
+  ];
+
   const handleUpload = async () => {
     const file = fileInputRef.current?.files?.[0];
     if (!file) return;
+
+    const ext = file.name.toLowerCase().replace(/^.+(\.)/, ".");
+    if (!ALLOWED_EXT.some((e) => file.name.toLowerCase().endsWith(e))) {
+      setMessage(`Invalid file type. Allowed: ${ALLOWED_EXT.join(', ')}`);
+      return;
+    }
+    if (file.size > MAX_SIZE_BYTES) {
+      setMessage("File too large (max 100MB)");
+      return;
+    }
     setUploading(true);
     setMessage(null);
 
