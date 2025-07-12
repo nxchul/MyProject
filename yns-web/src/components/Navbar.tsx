@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
+import supabaseBrowser from "@/lib/supabase-browser";
+import { useEffect, useState } from "react";
 
 const navItems = [
   { href: "/", label: "Home" },
@@ -13,6 +15,17 @@ const navItems = [
 
 export default function Navbar() {
   const pathname = usePathname();
+  const [user, setUser] = useState<any>(null);
+  useEffect(() => {
+    supabaseBrowser.auth.getUser().then(({ data }) => setUser(data.user));
+  }, []);
+
+  const handleLogout = async () => {
+    await supabaseBrowser.auth.signOut();
+    setUser(null);
+    window.location.reload();
+  };
+
   return (
     <header className="sticky top-0 z-30 w-full border-b bg-white/60 backdrop-blur">
       <nav className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
@@ -34,6 +47,18 @@ export default function Navbar() {
             </li>
           ))}
         </ul>
+        {user ? (
+          <button
+            onClick={handleLogout}
+            className="text-sm text-slate-600 hover:text-slate-900"
+          >
+            Logout
+          </button>
+        ) : (
+          <Link href="/login" className="text-sm text-slate-600 hover:text-slate-900">
+            Login
+          </Link>
+        )}
       </nav>
     </header>
   );
