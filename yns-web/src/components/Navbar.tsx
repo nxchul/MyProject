@@ -11,6 +11,7 @@ const navItems = [
   { href: "/mpw", label: "MPW" },
   { href: "/pdk", label: "PDK" },
   { href: "/services", label: "Services" },
+  { href: "/crypto-calculator", label: "Crypto Calc" },
 ];
 
 export default function Navbar() {
