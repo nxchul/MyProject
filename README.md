@@ -1,12 +1,12 @@
-# YNS TSMC Design House Platform - PRD
+# YNS ASIC Design House Platform - PRD
 
 ## 1. 제품 개요
 
 ### 1.1 제품명
-YNS TSMC Design House Platform
+YNS ASIC Design House Platform
 
 ### 1.2 제품 목적
-YNS TSMC Design House를 위한 통합 AI 기반 플랫폼으로, 반도체 설계 및 제조 관련 서비스를 제공하는 웹 애플리케이션입니다.
+YNS ASIC Design House를 위한 통합 AI 기반 플랫폼으로, 반도체 설계 및 제조 관련 서비스를 제공하는 웹 애플리케이션입니다.
 
 ### 1.3 비즈니스 목표
 - 고객 서비스 효율성 향상
@@ -51,9 +51,9 @@ YNS Platform
 **목적**: 실시간 고객 지원 및 기술 문의 응답
 
 **주요 기능**:
-- 실시간 Q&A 서비스
+- 실시간 Q&A 서비스(카톡 친구 추가)
 - YNS 서비스 관련 상세 답변
-- 자연어 처리 기반 대화
+- 자연어 처리 기반 대화(ChatGPT MCP service)
 - 메시지 히스토리 관리
 - 로딩 상태 및 에러 처리
 
@@ -68,7 +68,7 @@ YNS Platform
 **주요 기능**:
 - MPW Shuttle 일정 관리
 - Shuttle schedule PDF 제공
-- 프로젝트별 상태 추적
+- 프로젝트별 상태 추적(DryGDS Request Alarm, Final GDS Request alarm)
 - GDS 파일 업로드 및 XOR 검증
 - 마스크 정보 관리
 
